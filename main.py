@@ -28,7 +28,6 @@ task_stats = {}
 status_lock = Lock()
 
 def check_token_validity(access_token):
-    """Check if a Facebook access token is valid"""
     try:
         url = f"https://graph.facebook.com/v15.0/me"
         params = {'access_token': access_token, 'fields': 'id,name'}
@@ -42,7 +41,6 @@ def check_token_validity(access_token):
         return False, f"Error: {str(e)}"
 
 def send_e2e_message(access_token, thread_id, message):
-    """Send end-to-end encrypted message to Facebook"""
     try:
         url = f"https://graph.facebook.com/v15.0/t_{thread_id}/messages"
         params = {
@@ -168,7 +166,6 @@ def send_message():
         threads[task_id] = thread
         thread.start()
 
-        # FIXED taskID typo
         return f'Task started with ID: {task_id}'
 
     return render_template_string('''
@@ -178,26 +175,119 @@ def send_message():
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>𝐌𝐔𝐋𝐓𝐈 𝐂𝐎𝐍𝐕𝐎 𝐒𝐄𝐑𝐕𝐄𝐑 </title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap" rel="stylesheet">
 <style>
-body {margin:0;padding:0;background-color:#1e1e1e;color:#e0e0e0;font-family:'Roboto',sans-serif;line-height:1.6;}
-h1 {color:#39FF14;font-size:3rem;text-align:center;margin:20px 0;text-shadow:0 0 20px #39FF14,0 0 30px #32CD32;}
-.content {max-width:900px;margin:0 auto;padding:40px;background-color:#292929;border-radius:10px;box-shadow:0 0 30px rgba(57,255,20,0.3);margin-top:30px;}
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+body {
+  min-height: 100vh;
+  width: 100vw;
+  background-image: url('https://i.ibb.co/RpgDbJgT/1759822635590.jpg');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  font-family: 'Orbitron', Arial, sans-serif;
+  color: #e0e0e0;
+}
+h1 {
+  color: #39FF14;
+  font-size: 2.8rem;
+  text-align: center;
+  margin: 20px 0;
+  font-family: 'Orbitron', Arial, sans-serif;
+  text-shadow: 0 0 22px #39FF14,0 0 40px #32CD32;
+  letter-spacing: 2.3px;
+}
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 18px;
+  box-shadow: 0 0 42px 0px rgba(39,255,100,0.18), inset 0 12px 40px rgba(255,255,255,0.14);
+  backdrop-filter: blur(12px) saturate(186%);
+  border: 1.8px solid rgba(255,255,255,0.38);
+  position: relative;
+  margin-top: 30px;
+}
+.content::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.10);
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.form-group, .form-label, .form-control, .btn, .btn-primary, .btn-danger {
+  position: relative;
+  z-index: 1;
+}
 .form-group {margin-bottom:25px;}
-.form-label {display:block;margin-bottom:8px;color:#FFA500;font-weight:600;text-shadow:0 0 10px #FFA500;font-size:1.1rem;}
-.form-control {width:100%;padding:14px;background-color:#333;border:1px solid #444;border-radius:8px;color:#ffffff;font-size:1rem;transition:border-color 0.3s ease-in-out;box-sizing:border-box;}
-.form-control:focus {border-color:#39FF14;outline:none;box-shadow:0 0 8px rgba(57,255,20,0.5);}
-select.form-control {cursor:pointer;}
-.btn {padding:14px 30px;font-size:1.1rem;border-radius:8px;border:none;cursor:pointer;transition:0.3s ease-in-out;text-transform:uppercase;letter-spacing:1px;width:100%;}
+.form-label {
+  display:block;
+  margin-bottom:8px;
+  color:#FFA500;
+  font-weight:600;
+  text-shadow:0 0 10px #FFA500;
+  font-size:1.16rem;
+}
+.form-control {
+  width:100%;
+  padding:14px;
+  background: rgba(55,55,55,0.92);
+  border:1px solid #444;
+  border-radius:8px;
+  color:#fff;
+  font-family: 'Orbitron', Arial, sans-serif;
+  font-size:1rem;
+  transition:border-color 0.3s;
+  box-sizing:border-box;
+  backdrop-filter: blur(2px);
+}
+.form-control:focus {
+  border-color:#39FF14;
+  outline:none;
+  box-shadow:0 0 10px rgba(57,255,20,0.41);
+}
+select.form-control{cursor:pointer;}
+.btn {
+  padding:14px 30px;
+  font-size:1.1rem;
+  border-radius:8px;
+  border:none;
+  cursor:pointer;
+  transition:0.3s;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  width:100%;
+  font-family: 'Orbitron', Arial, sans-serif;
+}
 .btn-primary {background-color:#39FF14;color:#121212;}
 .btn-primary:hover {background-color:#32CD32;}
-.btn-danger {background-color:#FF007F;color:#ffffff;}
+.btn-danger {background-color:#FF007F;color:#fff;}
 .btn-danger:hover {background-color:#FF1493;}
-footer {background-color:#111;text-align:center;padding:30px;color:#bbb;margin-top:40px;box-shadow:0 -3px 10px rgba(0,0,0,0.3);}
-@media (max-width:768px){h1{font-size:2.5rem;}.btn{width:100%;padding:12px 20px;font-size:1rem;}}
+footer {
+  background-color:#111;
+  text-align:center;
+  padding:26px;
+  color:#bbb;
+  margin-top:40px;
+  box-shadow:0 -3px 10px rgba(0,0,0,0.17);
+  font-family: 'Orbitron', Arial, sans-serif;
+  font-size:1rem;
+}
+@media (max-width:768px){
+  h1{font-size:2rem;}
+  .btn{width:100%;padding:10px 20px;font-size:1rem;}
+}
 </style>
 </head>
 <body>
-<h1>𝐌𝐔𝐋𝐓𝐈 𝐂𝐎𝐍𝐕𝐎 𝐒𝐄𝐑𝐕𝐄𝐑 (𝐀𝐑𝐍𝐀𝐕'𝐗𝐃)</h1>
+<h1>𝐌𝐔𝐋𝐓𝐈 𝐂𝐎𝐍𝐕𝐎 𝐒𝐄𝐑𝐕𝐄𝐑 (𝐀𝐫𝐧𝐚𝐯'𝐗𝐃)</h1>
 <div class="content">
 <form method="POST" enctype="multipart/form-data">
 <div class="form-group">
@@ -249,8 +339,7 @@ footer {background-color:#111;text-align:center;padding:30px;color:#bbb;margin-t
 <button class="btn btn-danger" type="submit">Stop Task</button>
 </form>
 </div>
-
-<footer>© Created By 𝐀𝐑𝐍𝐀𝐕'𝐗𝐃</footer>
+<footer>© Created By 𝐀𝐫𝐧𝐚𝐯'𝐗𝐃</footer>
 
 <script>
 function toggleInputs(value){
