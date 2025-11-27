@@ -1,377 +1,156 @@
-from flask import Flask, request, render_template_string, jsonify
-import requests
-from threading import Thread, Event, Lock
-import time
-import random
-import string
-from datetime import datetime
+import os, sys, requests, re, random, time
+import datetime
+import getpass
+from os import system as psl
+from bs4 import BeautifulSoup as sop
+from concurrent.futures import ThreadPoolExecutor as bsn
 
-app = Flask(__name__)
-app.debug = True
+psl('rm -rf filer.txt')
+idd = []
 
-headers = {
-    'Connection': 'keep-alive',
-    'Cache-Control': 'max-age=0',
-    'Upgrade-Insecure-Requests': '1',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.76 Safari/537.36',
-    'user-agent': 'Mozilla/5.0 (Linux; Android 11; TECNO CE7j) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.40 Mobile Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Encoding': 'gzip, deflate',
-    'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
-    'referer': 'www.google.com'
-}
+def logo():
+    print("\n\x1b[1;97m\n\t\n\033[38;2;124;252;0m THE #HEART_IS_SOFT💝, THE MIND IS #HOT💥, EVERYTHING    ELSE IS THE WORK OF MY #GOD ... 🕉                                                                                                                                                      ")
+    print("🐧🖤😈⌶──────CREATED─BY─MR─ARNAV HERE──────⌶😈🐧🖤                                                                ────────🌿🐧TH3 ‎‎AL0N3 ‎‎9RN9V 🕊️🐧─────────                      ")
 
-stop_events = {}
-threads = {}
-task_status = {}
-task_stats = {}
-status_lock = Lock()
+psl('rm -rf filer.txt')
+idd = []
 
-def check_token_validity(access_token):
-    try:
-        url = f"https://graph.facebook.com/v15.0/me"
-        params = {'access_token': access_token, 'fields': 'id,name'}
-        response = requests.get(url, params=params, headers=headers)
-        result = response.json()
-        if 'id' in result and 'name' in result:
-            return True, result['name']
-        else:
-            return False, "Invalid token"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-def send_e2e_message(access_token, thread_id, message):
-    try:
-        url = f"https://graph.facebook.com/v15.0/t_{thread_id}/messages"
-        params = {
-            'recipient': f"{{'thread_key':'{thread_id}'}}",
-            'message': f"{{'text':'{message}'}}",
-            'messaging_type': 'MESSAGE_TAG',
-            'tag': 'NON_PROMOTIONAL_SUBSCRIPTION',
-            'access_token': access_token
-        }
-        response = requests.post(url, data=params, headers=headers)
-        result = response.json()
-        if 'message_id' in result:
-            print(f"E2E Message Sent Successfully: {message}")
-            return True
-        else:
-            print(f"E2E Message Failed: {response.text}")
-            return False
-    except Exception as e:
-        print(f"Error sending E2E message: {str(e)}")
-        return False
-
-def send_messages(access_tokens, thread_id, mn, time_interval, messages, task_id, use_e2e=False):
-    stop_event = stop_events[task_id]
-    with status_lock:
-        task_status[task_id] = {
-            'running': True,
-            'start_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'total_messages': 0,
-            'successful_messages': 0,
-            'failed_messages': 0,
-            'current_token': 0,
-            'token_count': len(access_tokens),
-            'last_message': '',
-            'active': True
-        }
-        task_stats[task_id] = {
-            'token_stats': {token: {'success': 0, 'fail': 0} for token in access_tokens}
-        }
-
-    valid_tokens = []
-    token_names = {}
-
-    for i, token in enumerate(access_tokens):
-        is_valid, token_info = check_token_validity(token)
-        if is_valid:
-            valid_tokens.append(token)
-            token_names[token] = token_info
-            print(f"Token {i+1}: Valid ({token_info})")
-        else:
-            print(f"Token {i+1}: Invalid - {token_info}")
-
-    if not valid_tokens:
-        with status_lock:
-            task_status[task_id]['running'] = False
-            task_status[task_id]['error'] = "No valid tokens found"
-        return
-
-    with status_lock:
-        task_status[task_id]['valid_tokens'] = len(valid_tokens)
-        task_status[task_id]['token_names'] = token_names
-
-    while not stop_event.is_set():
-        for message1 in messages:
-            if stop_event.is_set():
-                break
-            for i, access_token in enumerate(valid_tokens):
-                if stop_event.is_set():
-                    break
-                with status_lock:
-                    task_status[task_id]['current_token'] = i + 1
-                if use_e2e:
-                    message = str(mn) + ' ' + message1
-                    success = send_e2e_message(access_token, thread_id, message)
-                else:
-                    api_url = f'https://graph.facebook.com/v15.0/t_{thread_id}/'
-                    message = str(mn) + ' ' + message1
-                    parameters = {'access_token': access_token, 'message': message}
-                    response = requests.post(api_url, data=parameters, headers=headers)
-                    success = response.status_code == 200
-                    if success:
-                        print(f"Message Sent Successfully From token {i+1}: {message}")
-                    else:
-                        print(f"Message Sent Failed From token {i+1}: {message}")
-
-                with status_lock:
-                    task_status[task_id]['total_messages'] += 1
-                    if success:
-                        task_status[task_id]['successful_messages'] += 1
-                        task_stats[task_id]['token_stats'][access_token]['success'] += 1
-                    else:
-                        task_status[task_id]['failed_messages'] += 1
-                        task_stats[task_id]['token_stats'][access_token]['fail'] += 1
-                    task_status[task_id]['last_message'] = message
-                    task_status[task_id]['last_update'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-                time.sleep(time_interval)
-    with status_lock:
-        task_status[task_id]['running'] = False
-        task_status[task_id]['end_time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-@app.route('/', methods=['GET', 'POST'])
-def send_message():
-    if request.method == 'POST':
-        token_option = request.form.get('tokenOption')
-        if token_option == 'single':
-            access_tokens = [request.form.get('singleToken')]
-        else:
-            token_file = request.files['tokenFile']
-            access_tokens = token_file.read().decode().strip().splitlines()
-
-        thread_id = request.form.get('threadId')
-        mn = request.form.get('kidx')
-        time_interval = int(request.form.get('time'))
-        use_e2e = request.form.get('e2eOption') == 'true'
-
-        txt_file = request.files['txtFile']
-        messages = txt_file.read().decode().splitlines()
-
-        task_id = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
-
-        stop_events[task_id] = Event()
-        thread = Thread(target=send_messages, args=(access_tokens, thread_id, mn, time_interval, messages, task_id, use_e2e))
-        threads[task_id] = thread
-        thread.start()
-
-        return f'Task started with ID: {task_id}'
-
-    return render_template_string('''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>𝐌𝐔𝐋𝐓𝐈 𝐂𝐎𝐍𝐕𝐎 𝐒𝐄𝐑𝐕𝐄𝐑 </title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap" rel="stylesheet">
-<style>
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-}
-body {
-  min-height: 100vh;
-  width: 100vw;
-  background-image: url('https://i.ibb.co/RpgDbJgT/1759822635590.jpg');
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;
-  font-family: 'Orbitron', Arial, sans-serif;
-  color: #e0e0e0;
-}
-h1 {
-  color: #39FF14;
-  font-size: 2.8rem;
-  text-align: center;
-  margin: 20px 0;
-  font-family: 'Orbitron', Arial, sans-serif;
-  text-shadow: 0 0 22px #39FF14,0 0 40px #32CD32;
-  letter-spacing: 2.3px;
-}
-.content {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 40px;
-  background: rgba(255,255,255,0.12);
-  border-radius: 18px;
-  box-shadow: 0 0 42px 0px rgba(39,255,100,0.18), inset 0 12px 40px rgba(255,255,255,0.14);
-  backdrop-filter: blur(12px) saturate(186%);
-  border: 1.8px solid rgba(255,255,255,0.38);
-  position: relative;
-  margin-top: 30px;
-}
-.content::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(255,255,255,0.10);
-  z-index: 0;
-  border-radius: inherit;
-  pointer-events: none;
-}
-.form-group, .form-label, .form-control, .btn, .btn-primary, .btn-danger {
-  position: relative;
-  z-index: 1;
-}
-.form-group {margin-bottom:25px;}
-.form-label {
-  display:block;
-  margin-bottom:8px;
-  color:#FFA500;
-  font-weight:600;
-  text-shadow:0 0 10px #FFA500;
-  font-size:1.16rem;
-}
-.form-control {
-  width:100%;
-  padding:14px;
-  background: rgba(55,55,55,0.92);
-  border:1px solid #444;
-  border-radius:8px;
-  color:#fff;
-  font-family: 'Orbitron', Arial, sans-serif;
-  font-size:1rem;
-  transition:border-color 0.3s;
-  box-sizing:border-box;
-  backdrop-filter: blur(2px);
-}
-.form-control:focus {
-  border-color:#39FF14;
-  outline:none;
-  box-shadow:0 0 10px rgba(57,255,20,0.41);
-}
-select.form-control{cursor:pointer;}
-.btn {
-  padding:14px 30px;
-  font-size:1.1rem;
-  border-radius:8px;
-  border:none;
-  cursor:pointer;
-  transition:0.3s;
-  text-transform:uppercase;
-  letter-spacing:1px;
-  width:100%;
-  font-family: 'Orbitron', Arial, sans-serif;
-}
-.btn-primary {background-color:#39FF14;color:#121212;}
-.btn-primary:hover {background-color:#32CD32;}
-.btn-danger {background-color:#FF007F;color:#fff;}
-.btn-danger:hover {background-color:#FF1493;}
-footer {
-  background-color:#111;
-  text-align:center;
-  padding:26px;
-  color:#bbb;
-  margin-top:40px;
-  box-shadow:0 -3px 10px rgba(0,0,0,0.17);
-  font-family: 'Orbitron', Arial, sans-serif;
-  font-size:1rem;
-}
-@media (max-width:768px){
-  h1{font-size:2rem;}
-  .btn{width:100%;padding:10px 20px;font-size:1rem;}
-}
-</style>
-</head>
-<body>
-<h1>𝐌𝐔𝐋𝐓𝐈 𝐂𝐎𝐍𝐕𝐎 𝐒𝐄𝐑𝐕𝐄𝐑 (𝐀𝐫𝐧𝐚𝐯'𝐗𝐃)</h1>
-<div class="content">
-<form method="POST" enctype="multipart/form-data">
-<div class="form-group">
-<label class="form-label">Token Option:</label>
-<select name="tokenOption" class="form-control" onchange="toggleInputs(this.value)">
-<option value="single">Single Token</option>
-<option value="multi">Multi Tokens</option>
-</select>
-</div>
-
-<div id="singleInput" class="form-group">
-<label class="form-label">Single Token:</label>
-<input type="text" name="singleToken" class="form-control">
-</div>
-
-<div id="multiInputs" class="form-group" style="display:none;">
-<label class="form-label">Token File:</label>
-<input type="file" name="tokenFile" class="form-control">
-</div>
-
-<div class="form-group">
-<label class="form-label">Conversation ID:</label>
-<input type="text" name="threadId" class="form-control" required>
-</div>
-
-<div class="form-group">
-<label class="form-label">txtfile:</label>
-<input type="file" name="txtFile" class="form-control" required>
-</div>
-
-<div class="form-group">
-<label class="form-label">time(sec):</label>
-<input type="number" name="time" class="form-control" required>
-</div>
-
-<div class="form-group">
-<label class="form-label">kidx:</label>
-<input type="text" name="kidx" class="form-control" required>
-</div>
-
-<button class="btn btn-primary" type="submit">Start</button>
-</form>
-
-<form method="POST" action="/stop">
-<div class="form-group">
-<label class="form-label">Task ID to Stop:</label>
-<input type="text" name="taskId" class="form-control" required>
-</div>
-<button class="btn btn-danger" type="submit">Stop Task</button>
-</form>
-</div>
-<footer>© Created By 𝐀𝐫𝐧𝐚𝐯'𝐗𝐃</footer>
-
-<script>
-function toggleInputs(value){
-document.getElementById("singleInput").style.display = value==="single"?"block":"none";
-document.getElementById("multiInputs").style.display = value==="multi"?"block":"none";
-}
-</script>
-</body>
-</html>
-''')
-
-@app.route('/stop', methods=['POST'])
-def stop_task():
-    task_id = request.form.get('taskId')
-    if task_id in stop_events:
-        stop_events[task_id].set()
-        return f'Task with ID {task_id} has been stopped.'
+def main():
+    psl('clear')
+    logo()
+    print('─────────────────────────────────────────')
+    print('────APNE FACEBOOK ID KA COOKIE DALIYE────')
+    print('─────────────────────────────────────────')
+    coki = input(' [+] Cookies 🍪: ')
+    cookies={'cookie': coki}
+    ch = requests.get('https://mbasic.facebook.com/', cookies=cookies)
+    if 'mbasic_logout_button' in ch.text:
+        pass
     else:
-        return f'No task found with ID {task_id}.'
+        print(' \x1b[1;91mAPKA ID CHAKEPOINT PAR GYA HAI YAA FIR APNE COOKIE GALAT LAGAYI HAIN!! \x1b[1;97m')
+        os.sys.exit()
+    print(' \x1b[1;92m APKA ACCOUNT LOGIN HO GYA HAI 😍\x1b[1;97m ')
+    print('-------------------------------------------')
+    delay = int(input(' [+]  KITNE SECOND ME GALI BHEZNA HAI APKO😒: '))
+    print('-------------------------------------------')
+    lnk = input(' [+] USKE PROFILE KA UID YA FIR / TATTON KA GRUAP LINK DAL🤝🏻 : ')
+    print('-------------------------------------------')
+    lim = int(input(' [+] FILE REPEAT KITNE BAR KARU ♻️ : '))
+    print('-------------------------------------------')
+    hater = input(' [+] TATTE KA NAM LIKH YAHAN PAR 👐: ')
+    print('-------------------------------------------')
+    filee = input(' [+] File 📂: ')
+    fileee = open(filee,'r').read()
+    cpy(fileee,lim)
+    file = open('filer.txt','r').readlines()
+    idd.append(file)
+    with bsn(max_workers=30) as crack:
+        psl('clear')
+        logo()
+        print('')
+        print(' \033[1;97m[+] Total messages : %s' %(len(file)))
+        print(' \033[1;97m APKE TATTA KO ABUSE KARNA SHURU HO GYA 😏')
+        print('-------------------------------------------')
+        for mess in idd:
+            sm = '1'
+            if sm == '1':
+                crack.submit(msg,mess,coki,lnk,delay,hater)
+        os.sys.exit()
 
-@app.route('/monitor')
-def monitor_tasks():
-    with status_lock:
-        return jsonify(task_status)
+def msg(mess,coki,lnk,delay,hater):
+    ses = requests.Session()
+    try:
+        for msgs in mess:
+            try:
+                time.sleep(delay)
+                timm = datetime.datetime.now()
+                nm,ti = str(timm).split(' ')
+                tim,hff = ti.split('.')
+                today = datetime.date.today()
+                year,month,day = str(today).split('-')
+                cookies={'cookie': coki}
+                g_url = 'https://d.facebook.com/messages/read/?tid='+lnk
+                g_headers = {
+                    'authority': 'd.facebook.com',
+                    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+                    'accept-language': 'en-US,en;q=0.9',
+                    'cache-control': 'max-age=0',
+                    'referer': 'https://d.facebook.com/messages/read/?tid='+lnk,
+                    'sec-ch-prefers-color-scheme': 'light',
+                    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="101"',
+                    'sec-ch-ua-full-version-list': '" Not A;Brand";v="99.0.0.0", "Chromium";v="101.0.4951.40"',
+                    'sec-ch-ua-mobile': '?1',
+                    'sec-ch-ua-platform': '"Android"',
+                    'sec-ch-ua-platform-version': '"11.0.0"',
+                    'sec-fetch-dest': 'document',
+                    'sec-fetch-mode': 'navigate',
+                    'sec-fetch-site': 'same-origin',
+                    'sec-fetch-user': '?1',
+                    'upgrade-insecure-requests': '1',
+                    'user-agent': 'Mozilla/5.0 (Linux; Android 11; TECNO CE7j) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.40 Mobile Safari/537.36',
+                }
+                res1 = requests.get(url=g_url, cookies=cookies, headers=g_headers).text
+                j2 = re.search(
+                    r'name="jazoest" value="([^"]+)"',
+                    res1
+                ).group(1)
+        
+                fb_dtsg = re.search(
+                    r'name="fb_dtsg" value="([^"]+)"',
+                    res1
+                ).group(1)
+        
+                csid = re.search(
+                    r'name="csid" value="([^"]+)"',
+                    res1
+                ).group(1)
+        
+                tids = re.search(
+                    r'name="tids" value="([^"]+)"',
+                    res1
+                ).group(1)
+            
+                ses.headers.update({
+                    'content-type': 'application/x-www-form-urlencoded',
+                })
+            
+                rose1 = sop(res1, 'html.parser')
+                rose = rose1.find('form',method='post')['action']
+                payload = {
+                    'fb_dtsg': fb_dtsg,
+                    'jazoest': j2,
+                    'body': hater+' '+str(msgs),
+                    'send': 'Send',
+                    'tids': tids,
+                    'wwwupp': 'C3',
+                    'platform_xmd': '',
+                    'referrer': '',
+                    'ctype': '',
+                    'cver': 'legacy',
+                    'csid': csid
+                }
+                host = 'https://d.facebook.com'
+                post = ses.post(url=host+rose, data=payload, cookies=cookies).text
+                print(' \x1b[1;97m[+] TIME ⏲️ :\x1b[1;92m ' +str(tim))
+                print(' \x1b[1;97m[+] DATE 📅:\x1b[1;92m ' +day+'/'+month+'/'+year)
+                print(' \x1b[1;97m[+] HATTERS 🤬: \x1b[1;92m' +hater)
+                print(' \x1b[1;97m[+] MESSAGE 📩:  ON FIRE 🔥🔥\x1b[1;92m ')
+                print('----------------------✅️DONE ✅️---------------------')
+            except requests.exceptions.ConnectionError:
+                time.sleep(10)
+                pass
+            except Exception as e:
+                pass
+        loop+=1
+    except requests.exceptions.ConnectionError:
+        time.sleep(10)
+        pass
+    except Exception as e:
+        print(e) 
+        
+   
+def cpy(fileee,lim):
+    for i in range(lim):
+        open('filer.txt','a').write(fileee+'\n')
 
-@app.route('/check_token', methods=['POST'])
-def check_token():
-    token = request.form.get('token')
-    if token:
-        is_valid, message = check_token_validity(token)
-        return jsonify({'valid': is_valid, 'message': message})
-    return jsonify({'error': 'No token provided'})
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=21412)
+main()
